@@ -1,0 +1,11 @@
+{
+  "install_command": "",
+  "dev_command": "",
+  "test_command": "",
+  "build_command": "",
+  "lint_command": "",
+  "base_url": "",
+  "verification_preferences": ["ui", "test", "build"],
+  "protected_paths": [],
+  "notes": "Fill in commands that future coding sessions can rely on."
+}

@@ -1,0 +1,28 @@
+[
+  {
+    "id": "replace-with-first-feature-id",
+    "priority": 1,
+    "category": "functional",
+    "description": "Replace this example with a real feature for the target project.",
+    "steps": [
+      "Open the relevant area of the application.",
+      "Perform the user action described by the feature.",
+      "Verify the expected end-to-end result.",
+      "Confirm the result remains correct after a refresh or follow-up action if relevant."
+    ],
+    "passes": false
+  },
+  {
+    "id": "replace-with-second-feature-id",
+    "priority": 2,
+    "category": "integration",
+    "description": "Replace this example with another prioritized, verifiable feature.",
+    "steps": [
+      "Start from the main supported workflow.",
+      "Trigger the integration or data flow.",
+      "Verify visible output and persisted state.",
+      "Check logs, tests, or UI evidence as needed."
+    ],
+    "passes": false
+  }
+]
