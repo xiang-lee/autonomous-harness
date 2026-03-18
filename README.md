@@ -10,11 +10,54 @@ This repo is inspired by Anthropic's "Effective harnesses for long-running agent
 - `scripts/run.sh` loops until all features pass or the run stalls
 - if `.autonomous/FEATURES.json` already exists, the harness skips initialization automatically
 
+Recommended usage is now scaffold mode:
+
+- treat this repo as a scaffold template
+- copy it into an existing repo as `./.autonomous-harness/`
+- run the harness from inside that existing repo
+
+## Minimal Prompt
+
+In an existing project, you should usually only need to tell another AI:
+
+```text
+Use https://github.com/xiang-lee/autonomous-harness.
+Read its README and apply the scaffold workflow in this repository.
+Do not implement product features yet. Stop after creating `.autonomous-harness/`, `.autonomous/`, and `.autonomous/FEATURES.json` so I can review.
+```
+
+This README is intentionally written so an AI can follow it directly.
+
+## AI Operating Instructions
+
+If you are an AI reading this README while working inside another existing repository, do this in the current repository:
+
+1. Copy this harness into `./.autonomous-harness/`.
+2. Copy or recreate:
+   - `AGENTS.md`
+   - `FOR_AI.md`
+   - `prompts/`
+   - `scripts/`
+   - `templates/`
+3. Create:
+   - `.autonomous/PROJECT_SPEC.md`
+   - `.autonomous/FEATURES.json`
+   - `.autonomous/PROGRESS.md`
+   - `.autonomous/init.sh`
+   - `.autonomous/config.json`
+4. Analyze the existing codebase before writing those files.
+5. Do not rebuild the app from scratch.
+6. Do not implement product features yet unless the human explicitly asks you to continue.
+7. Create 15-40 prioritized, verifiable features.
+8. Every feature must start with `"passes": false`.
+9. After the human reviews the feature list, continue by running `./.autonomous-harness/scripts/run.sh` from the current repository.
+10. If `codex`, `kiro-cli`, or `opencode` is installed, `run.sh` auto-detects it. Otherwise use `--provider` or `HARNESS_AI_COMMAND`.
+
 ## Requirements
 
 - `bash`
 - `git`
-- `jq`
+- `jq` or `python3`
 - a coding AI CLI that can run non-interactively in a target repo
 
 ## Status
@@ -24,8 +67,8 @@ Current local repo state:
 - shell harness created
 - prompts and `.autonomous/` templates created
 - provider scripts included for `custom`, `codex`, `kiro-cli`, and `opencode`
-- local git repo initialized and committed
-- GitHub push is still waiting on the remote repo to exist
+- install script included for scaffold mode
+- local git repo initialized and published
 
 ## Repo Layout
 
@@ -44,6 +87,7 @@ autonomous-harness/
 │   │   ├── custom.sh
 │   │   ├── kiro-cli.sh
 │   │   └── opencode.sh
+│   ├── install-into-target.sh
 │   └── run.sh
 └── templates/
     └── .autonomous/
@@ -54,7 +98,83 @@ autonomous-harness/
         └── init.sh
 ```
 
-## Fast Path For Existing Projects
+## Recommended Workflow: Use This Repo As A Scaffold
+
+Preferred flow:
+
+1. In your existing project, ask an AI to read this repo and copy the scaffold into `./.autonomous-harness/`.
+2. In that same existing project, ask the AI to create `.autonomous/` using the copied template files.
+3. Review `.autonomous/FEATURES.json`.
+4. Run the vendored harness from inside the existing project.
+
+Example AI instruction:
+
+```text
+Read this repository and use it as a scaffold:
+https://github.com/xiang-lee/autonomous-harness
+
+In the current repository:
+1. Copy this harness into `./.autonomous-harness/`.
+   Copy or recreate:
+   - `AGENTS.md`
+   - `FOR_AI.md`
+   - `prompts/`
+   - `scripts/`
+   - `templates/`
+2. Create `.autonomous/PROJECT_SPEC.md`, `.autonomous/FEATURES.json`, `.autonomous/PROGRESS.md`, `.autonomous/init.sh`, and `.autonomous/config.json`.
+3. Do not implement product features yet.
+4. Create 15-40 prioritized, verifiable features.
+5. Every feature must start with `"passes": false`.
+```
+
+Then, if you want a second AI step before implementation, use the local scaffold rather than the GitHub link:
+
+```text
+Use the copied scaffold in `./.autonomous-harness/` as the workflow standard.
+
+In this repository, create:
+- `.autonomous/PROJECT_SPEC.md`
+- `.autonomous/FEATURES.json`
+- `.autonomous/PROGRESS.md`
+- `.autonomous/init.sh`
+- `.autonomous/config.json`
+
+Rules:
+- Do not implement product features yet.
+- Analyze the existing codebase first.
+- Create 15-40 prioritized, verifiable features.
+- Every feature must start with `"passes": false`.
+```
+
+Then run the harness directly inside the target repo:
+
+```bash
+cd /absolute/path/to/existing-project
+
+./.autonomous-harness/scripts/run.sh
+```
+
+Because the harness is installed as `./.autonomous-harness/`, `run.sh` automatically uses the parent repo as the target.
+If `codex`, `kiro-cli`, or `opencode` is available, it auto-selects the matching provider.
+
+## Manual Scaffold Install
+
+If you want to copy the scaffold yourself instead of asking an AI to do it:
+
+```bash
+cd /absolute/path/to/autonomous-harness
+
+./scripts/install-into-target.sh --target "/absolute/path/to/existing-project"
+```
+
+After that:
+
+```bash
+cd /absolute/path/to/existing-project
+./.autonomous-harness/scripts/run.sh
+```
+
+## Central Runner Mode
 
 1. In your existing project, ask an AI to read this repo and create `.autonomous/` using the template files as examples.
 2. Review `.autonomous/FEATURES.json`.
@@ -83,7 +203,7 @@ Rules:
 - Use the JSON structure shown in the harness template.
 ```
 
-Then start the loop:
+Then start the loop from the central harness checkout:
 
 ```bash
 export HARNESS_AI_COMMAND='your-ai-cli --cwd "{{TARGET}}" --prompt-file "{{PROMPT_FILE}}"'
@@ -111,7 +231,14 @@ Behavior:
 
 ## Provider Setup
 
-The default provider is `scripts/providers/custom.sh`.
+If you do not pass `--provider`, `run.sh` auto-detects providers in this order:
+
+1. `codex`
+2. `kiro-cli`
+3. `opencode`
+4. `custom.sh` when `HARNESS_AI_COMMAND` is set
+
+The explicit fallback provider is `scripts/providers/custom.sh`.
 
 It reads `HARNESS_AI_COMMAND`, substitutes placeholders, then executes it.
 
@@ -208,12 +335,13 @@ export OPENCODE_VARIANT=
 Short version:
 
 1. Open your existing repo on a branch.
-2. Ask an AI to create `.autonomous/` using this harness as the template.
-3. Review `.autonomous/FEATURES.json`.
-4. Pick a provider.
-5. Run `./scripts/run.sh --target ... --provider ...` once.
-6. Let it continue until all features pass or the run stalls.
-7. Pause with `Ctrl+C`, resume with the same command.
+2. Ask an AI to copy this repo into `./.autonomous-harness/` in that repo.
+3. Ask the AI to create `.autonomous/` using the copied harness.
+4. Review `.autonomous/FEATURES.json`.
+5. Usually just run `./.autonomous-harness/scripts/run.sh` once.
+6. If you need a specific CLI, pass `--provider ...` explicitly.
+7. Let it continue until all features pass or the run stalls.
+8. Pause with `Ctrl+C`, resume with the same command.
 
 Detailed walkthrough: `docs/existing-project.md`
 

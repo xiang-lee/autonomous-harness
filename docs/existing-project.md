@@ -2,6 +2,16 @@
 
 This is the intended user journey for applying the harness to an existing repository.
 
+Preferred approach: install the harness inside the target repo as `./.autonomous-harness/`, then run it locally from there.
+
+Minimal instruction you can usually give an AI in the target repo:
+
+```text
+Use https://github.com/xiang-lee/autonomous-harness.
+Read its README and apply the scaffold workflow in this repository.
+Do not implement product features yet. Stop after creating `.autonomous-harness/`, `.autonomous/`, and `.autonomous/FEATURES.json` so I can review.
+```
+
 ## 1. Prepare the target repo
 
 In the target repository:
@@ -13,13 +23,49 @@ git checkout -b ai/autonomous-run
 
 Using a dedicated branch keeps the long-running work isolated.
 
-## 2. Ask an AI to create the autonomous state
+## 2. Ask an AI to copy the scaffold into the current repo
 
 Give your AI this prompt in the target repo:
 
 ```text
-Use this repository as the workflow standard:
-<autonomous-harness repo link>
+Read this repository and use it as a scaffold:
+https://github.com/xiang-lee/autonomous-harness
+
+In the current repository, create `./.autonomous-harness/` and copy or recreate:
+- `AGENTS.md`
+- `FOR_AI.md`
+- `prompts/`
+- `scripts/`
+- `templates/`
+
+Do not implement product features yet.
+```
+
+At the end of this step, your target repo should contain:
+
+```text
+existing-project/
+  .autonomous-harness/
+    AGENTS.md
+    FOR_AI.md
+    prompts/
+    scripts/
+    templates/
+```
+
+You can also do this manually:
+
+```bash
+cd /absolute/path/to/autonomous-harness
+./scripts/install-into-target.sh --target "/absolute/path/to/existing-project"
+```
+
+## 3. Ask an AI to create the autonomous state
+
+Give your AI this prompt in the target repo:
+
+```text
+Use the copied scaffold in `./.autonomous-harness/` as the workflow standard.
 
 In this repository, create `.autonomous/` with:
 - `.autonomous/PROJECT_SPEC.md`
@@ -38,7 +84,7 @@ Rules:
 
 If you want the harness itself to do initialization later, you can skip this step and pass `--goal` to `run.sh`. But the simplest path is usually to seed the feature list first, review it, then run the loop.
 
-## 3. Review the generated feature list
+## 4. Review the generated feature list
 
 Open `.autonomous/FEATURES.json` and look for:
 
@@ -49,43 +95,41 @@ Open `.autonomous/FEATURES.json` and look for:
 
 If needed, ask the AI to refine the backlog before starting implementation.
 
-## 4. Pick a provider
+## 5. Pick a provider
 
-This repo includes ready-to-use provider scripts:
+The vendored harness includes ready-to-use provider scripts:
 
-- `scripts/providers/codex.sh`
-- `scripts/providers/kiro-cli.sh`
-- `scripts/providers/opencode.sh`
-- `scripts/providers/custom.sh`
+- `.autonomous-harness/scripts/providers/codex.sh`
+- `.autonomous-harness/scripts/providers/kiro-cli.sh`
+- `.autonomous-harness/scripts/providers/opencode.sh`
+- `.autonomous-harness/scripts/providers/custom.sh`
+
+In most cases you can just run `./.autonomous-harness/scripts/run.sh` and let it auto-detect the available CLI.
 
 ### Codex example
 
 ```bash
-cd /absolute/path/to/autonomous-harness
-./scripts/run.sh \
-  --target "/absolute/path/to/existing-project" \
-  --provider "./scripts/providers/codex.sh"
+cd /absolute/path/to/existing-project
+./.autonomous-harness/scripts/run.sh
 ```
 
 ### Kiro example
 
 ```bash
-cd /absolute/path/to/autonomous-harness
-./scripts/run.sh \
-  --target "/absolute/path/to/existing-project" \
-  --provider "./scripts/providers/kiro-cli.sh"
+cd /absolute/path/to/existing-project
+./.autonomous-harness/scripts/run.sh
 ```
 
 ### OpenCode example
 
 ```bash
-cd /absolute/path/to/autonomous-harness
-./scripts/run.sh \
-  --target "/absolute/path/to/existing-project" \
-  --provider "./scripts/providers/opencode.sh"
+cd /absolute/path/to/existing-project
+./.autonomous-harness/scripts/run.sh
 ```
 
-## 5. Let the loop run
+If more than one supported CLI is installed, or if you want to force a specific one, pass `--provider` explicitly.
+
+## 6. Let the loop run
 
 Each session should:
 
@@ -103,21 +147,21 @@ Each session should:
 
 The harness then starts the next session automatically.
 
-## 6. Stop and resume
+## 7. Stop and resume
 
 - Stop with `Ctrl+C`
-- Resume with the same `run.sh` command
+- Resume with the same `./.autonomous-harness/scripts/run.sh` command
 
 Because state is stored in the target repo, the harness continues from the saved `.autonomous/` files and git history.
 
-## 7. If the target repo is not seeded yet
+## 8. If the target repo is not seeded yet
 
 You can let the harness initialize the state if you provide `--goal`:
 
 ```bash
-./scripts/run.sh \
-  --target "/absolute/path/to/existing-project" \
-  --provider "./scripts/providers/codex.sh" \
+cd /absolute/path/to/existing-project
+./.autonomous-harness/scripts/run.sh \
+  --provider ./.autonomous-harness/scripts/providers/codex.sh \
   --goal "Implement feature A, feature B, and feature C incrementally"
 ```
 

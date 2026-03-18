@@ -2,6 +2,31 @@
 
 Use this repo as a lightweight harness standard for long-running coding work on an existing repository.
 
+If you can only read one file from this repo, read `README.md`. It contains the full scaffold workflow and the minimal instructions a human can give you.
+
+## Scaffold mode
+
+If you are working inside an existing target repo and this GitHub repo is only a reference, treat this repo as a scaffold.
+
+In the target repo, create `./.autonomous-harness/` and copy or recreate these files from this repo into it:
+
+- `AGENTS.md`
+- `FOR_AI.md`
+- `prompts/`
+- `scripts/`
+- `templates/`
+
+Then run the vendored harness from the target repo itself.
+
+Example:
+
+```bash
+./.autonomous-harness/scripts/run.sh
+```
+
+When `run.sh` is executed from `./.autonomous-harness/` inside a target repo, it should treat the parent repo as the target automatically.
+If `codex`, `kiro-cli`, or `opencode` is installed, `run.sh` should auto-detect it.
+
 ## Target repo state
 
 The target repo should contain a `.autonomous/` directory with:
@@ -23,6 +48,8 @@ When asked to prepare a target repo:
 5. Write `.autonomous/init.sh` so later sessions can quickly start the app or validation environment.
 6. Write `.autonomous/FEATURES.json` with prioritized, verifiable features.
 7. Write `.autonomous/PROGRESS.md` with a short status summary and the recommended next feature.
+
+If `./.autonomous-harness/` is not present yet, create it first from this scaffold before preparing `.autonomous/`.
 
 ## Coding behavior
 

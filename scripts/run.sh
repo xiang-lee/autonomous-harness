@@ -6,12 +6,23 @@ TARGET=""
 GOAL=""
 MAX_SESSIONS=200
 STALL_LIMIT=3
-PROVIDER="${HARNESS_PROVIDER:-$ROOT_DIR/scripts/providers/custom.sh}"
+PROVIDER="${HARNESS_PROVIDER:-}"
+
+infer_target() {
+  if [[ -n "$TARGET" ]]; then
+    return
+  fi
+
+  if [[ "$(basename "$ROOT_DIR")" == ".autonomous-harness" ]]; then
+    TARGET="$(realpath "$ROOT_DIR/..")"
+  fi
+}
 
 usage() {
-  cat <<EOF
+  cat <<'EOF'
 Usage:
   ./scripts/run.sh --target /absolute/path/to/repo [--goal "..."] [--provider /path/to/provider.sh]
+  ./.autonomous-harness/scripts/run.sh [--goal "..."] [--provider ./.autonomous-harness/scripts/providers/codex.sh]
 
 Options:
   --target        Absolute or relative path to the target repo
@@ -24,6 +35,8 @@ Options:
 Notes:
   - If .autonomous/FEATURES.json already exists and has entries, the harness skips initialization.
   - If FEATURES.json is missing or empty, provide --goal so the initializer can create the autonomous state.
+  - If this script is running from a vendored `.autonomous-harness/` inside a target repo, `--target` defaults to the parent repo automatically.
+  - If --provider is omitted, the harness auto-detects `codex`, `kiro-cli`, or `opencode`, then falls back to `custom.sh` when HARNESS_AI_COMMAND is set.
 EOF
 }
 
@@ -51,16 +64,93 @@ seed_target_state() {
   chmod +x "$AUTONOMOUS_DIR/init.sh"
 }
 
+resolve_provider() {
+  if [[ -n "$PROVIDER" ]]; then
+    return
+  fi
+
+  if command -v codex >/dev/null 2>&1; then
+    PROVIDER="$ROOT_DIR/scripts/providers/codex.sh"
+    return
+  fi
+
+  if command -v kiro-cli >/dev/null 2>&1; then
+    PROVIDER="$ROOT_DIR/scripts/providers/kiro-cli.sh"
+    return
+  fi
+
+  if command -v opencode >/dev/null 2>&1; then
+    PROVIDER="$ROOT_DIR/scripts/providers/opencode.sh"
+    return
+  fi
+
+  if [[ -n "${HARNESS_AI_COMMAND:-}" ]]; then
+    PROVIDER="$ROOT_DIR/scripts/providers/custom.sh"
+    return
+  fi
+
+  cat >&2 <<EOF
+Could not determine which provider to use.
+
+Either:
+1. install one of: codex, kiro-cli, opencode
+2. pass --provider explicitly
+3. set HARNESS_AI_COMMAND so custom.sh can invoke your AI CLI
+EOF
+  exit 1
+}
+
 has_valid_features() {
-  [[ -f "$AUTONOMOUS_DIR/FEATURES.json" ]] && jq -e 'type == "array" and length > 0' "$AUTONOMOUS_DIR/FEATURES.json" >/dev/null 2>&1
+  [[ -f "$AUTONOMOUS_DIR/FEATURES.json" ]] || return 1
+
+  if command -v jq >/dev/null 2>&1; then
+    jq -e 'type == "array" and length > 0' "$AUTONOMOUS_DIR/FEATURES.json" >/dev/null 2>&1
+    return
+  fi
+
+  python3 - "$AUTONOMOUS_DIR/FEATURES.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as f:
+    data = json.load(f)
+
+sys.exit(0 if isinstance(data, list) and len(data) > 0 else 1)
+PY
 }
 
 count_total() {
-  jq 'length' "$AUTONOMOUS_DIR/FEATURES.json"
+  if command -v jq >/dev/null 2>&1; then
+    jq 'length' "$AUTONOMOUS_DIR/FEATURES.json"
+    return
+  fi
+
+  python3 - "$AUTONOMOUS_DIR/FEATURES.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as f:
+    data = json.load(f)
+
+print(len(data))
+PY
 }
 
 count_passed() {
-  jq '[.[] | select(.passes == true)] | length' "$AUTONOMOUS_DIR/FEATURES.json"
+  if command -v jq >/dev/null 2>&1; then
+    jq '[.[] | select(.passes == true)] | length' "$AUTONOMOUS_DIR/FEATURES.json"
+    return
+  fi
+
+  python3 - "$AUTONOMOUS_DIR/FEATURES.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as f:
+    data = json.load(f)
+
+print(sum(1 for item in data if item.get("passes") is True))
+PY
 }
 
 render_prompt() {
@@ -155,6 +245,10 @@ if [[ -z "$TARGET" && -n "$POSITIONAL_TARGET" ]]; then
   TARGET="$POSITIONAL_TARGET"
 fi
 
+require_cmd realpath
+
+infer_target
+
 if [[ -z "$TARGET" ]]; then
   usage
   exit 1
@@ -163,8 +257,12 @@ fi
 TARGET="$(realpath "$TARGET")"
 
 require_cmd git
-require_cmd jq
 require_cmd mktemp
+
+if ! command -v jq >/dev/null 2>&1 && ! command -v python3 >/dev/null 2>&1; then
+  echo "Missing JSON parser: install jq or ensure python3 is available." >&2
+  exit 1
+fi
 
 if [[ ! -d "$TARGET" ]]; then
   echo "Target directory does not exist: $TARGET" >&2
@@ -175,6 +273,8 @@ if ! git -C "$TARGET" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   echo "Target is not a git repository: $TARGET" >&2
   exit 1
 fi
+
+resolve_provider
 
 if [[ ! -x "$PROVIDER" ]]; then
   echo "Provider is not executable: $PROVIDER" >&2
