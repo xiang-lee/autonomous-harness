@@ -17,18 +17,33 @@ This repo is inspired by Anthropic's "Effective harnesses for long-running agent
 - `jq`
 - a coding AI CLI that can run non-interactively in a target repo
 
+## Status
+
+Current local repo state:
+
+- shell harness created
+- prompts and `.autonomous/` templates created
+- provider scripts included for `custom`, `codex`, `kiro-cli`, and `opencode`
+- local git repo initialized and committed
+- GitHub push is still waiting on the remote repo to exist
+
 ## Repo Layout
 
 ```text
 autonomous-harness/
 ├── AGENTS.md
 ├── FOR_AI.md
+├── docs/
+│   └── existing-project.md
 ├── prompts/
 │   ├── coding.md
 │   └── initializer.md
 ├── scripts/
 │   ├── providers/
-│   │   └── custom.sh
+│   │   ├── codex.sh
+│   │   ├── custom.sh
+│   │   ├── kiro-cli.sh
+│   │   └── opencode.sh
 │   └── run.sh
 └── templates/
     └── .autonomous/
@@ -45,6 +60,8 @@ autonomous-harness/
 2. Review `.autonomous/FEATURES.json`.
 3. Configure the provider command.
 4. Run the harness once. It will keep going feature-by-feature.
+
+Full step-by-step guide: `docs/existing-project.md`
 
 Example prompt for the planning step:
 
@@ -122,6 +139,83 @@ You can also pass a custom provider script:
 ```bash
 ./scripts/run.sh --target "/path/to/repo" --provider "/path/to/provider.sh"
 ```
+
+Included providers:
+
+- `scripts/providers/custom.sh`
+- `scripts/providers/codex.sh`
+- `scripts/providers/kiro-cli.sh`
+- `scripts/providers/opencode.sh`
+
+### Codex
+
+Based on OpenAI Codex CLI non-interactive mode with `codex exec`.
+
+```bash
+./scripts/run.sh \
+  --target "/absolute/path/to/existing-project" \
+  --provider "./scripts/providers/codex.sh"
+```
+
+Optional env:
+
+```bash
+export CODEX_BIN=codex
+export CODEX_MODEL=gpt-5-codex
+export CODEX_APPROVAL=never
+export CODEX_SANDBOX=workspace-write
+```
+
+### Kiro CLI
+
+Based on `kiro-cli chat --no-interactive`.
+
+```bash
+./scripts/run.sh \
+  --target "/absolute/path/to/existing-project" \
+  --provider "./scripts/providers/kiro-cli.sh"
+```
+
+Optional env:
+
+```bash
+export KIRO_BIN=kiro-cli
+export KIRO_AGENT=
+export KIRO_TRUST_MODE=all
+```
+
+### OpenCode
+
+Based on `opencode run` with stdin prompt input.
+
+```bash
+./scripts/run.sh \
+  --target "/absolute/path/to/existing-project" \
+  --provider "./scripts/providers/opencode.sh"
+```
+
+Optional env:
+
+```bash
+export OPENCODE_BIN=opencode
+export OPENCODE_MODEL=
+export OPENCODE_AGENT=
+export OPENCODE_VARIANT=
+```
+
+## Existing Project User Journey
+
+Short version:
+
+1. Open your existing repo on a branch.
+2. Ask an AI to create `.autonomous/` using this harness as the template.
+3. Review `.autonomous/FEATURES.json`.
+4. Pick a provider.
+5. Run `./scripts/run.sh --target ... --provider ...` once.
+6. Let it continue until all features pass or the run stalls.
+7. Pause with `Ctrl+C`, resume with the same command.
+
+Detailed walkthrough: `docs/existing-project.md`
 
 ## What The Harness Does Each Session
 
